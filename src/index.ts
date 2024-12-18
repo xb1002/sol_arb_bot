@@ -71,12 +71,12 @@ setInterval(async () => {
 //     wsolBalance = await getWsolBalance(ATA);
 // }, getWsolBalanceInterval);
 
-// 保存addressLookupTableAccount信息，并且每2s更新一个batch
+// 保存addressLookupTableAccount信息，并且每8s更新一个batch
 let addressLookupTableAccount_list : AddressLookupTableAccount[] = [];
-let maxAddressLookupTableAccount = 400;
-let addressLookupTableAccountBatch = 4;
+let maxAddressLookupTableAccount = 200;
+let addressLookupTableAccountBatch = 5;
 let addressLookupTableAccountBatchNum = 0;
-let addressLookupTableAccountBatchInterval = 2*1000;
+let addressLookupTableAccountBatchInterval = 8*1000;
 async function _getAddressLookupTable(item:AddressLookupTableAccount) {
     try {
         const result = await pubCon.getAddressLookupTable(item.key);
