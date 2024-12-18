@@ -1,5 +1,6 @@
 import { PublicKey, Connection, VersionedTransaction } from '@solana/web3.js';
 import { Instruction, QuoteGetRequest, DefaultApi } from '@jup-ag/api';
+import {getPairsParams, pair} from './config.js'
 import bs58 from 'bs58';
 import axios from 'axios';
 
@@ -55,5 +56,28 @@ export async function sendTxToCons(tx:VersionedTransaction,bundle_apis:string[])
         })
     } catch (err) {
         console.error(`sendTxToCons error:`)
+    }
+}
+
+
+// 从gmgnai获取交易对
+export async function getPairs() : Promise<pair[]> {
+    let timeSpan = getPairsParams.timeSpan;
+    try {
+        const url = `http://47.237.120.213:9488/defi/quotation/v1/rank/sol/swaps/${timeSpan}?orderby=volume&direction=desc&filters[]=renounced&filters[]=frozen&filters[]=burn&filters[]=distribed`
+        let resp = await axios.get(url);
+        if (resp.data.code != 0) {
+            throw new Error(`getPairs error, code: ${resp.data.code}, msg: ${resp.data.msg}`)
+        } else {
+            let result = resp.data.data.rank.slice(0,getPairsParams.pairNum).map((pair:any) => {
+                return {
+                    symbol: pair.symbol,
+                    mint: pair.address
+                }
+            })
+            return result as pair[];
+        }
+    } catch (err) {
+        throw new Error(`getPairs error:`)
     }
 }

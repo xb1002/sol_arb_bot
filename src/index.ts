@@ -12,8 +12,8 @@ import { getAssociatedTokenAddress } from '@solana/spl-token';
 import 'dotenv/config';
 import bs58 from 'bs58';
 import axios from 'axios';
-import { wait, instructionFormat, getQuote, sendTxToCons } from './lib.js';
-import { config,trade_pairs } from './config.js';
+import { wait, instructionFormat, getQuote, sendTxToCons,getPairs } from './lib.js';
+import { config,trade_pairs,pair } from './config.js';
 
 // 导入环境变量
 // const QUICKNODE_RPC = process.env.QUICKNODE_API;
@@ -29,10 +29,10 @@ let {status,
     jitoTip,
     initalTradeSol,
     threshold,
+    tradePercent,
     JitoTipAccounts,
     bundle_apis
 } = config;
-let trade_sol = initalTradeSol;
 
 // 构造RPC池
 const rpc = RPC as string
@@ -54,28 +54,34 @@ setInterval(async () => {
     }
 }, getBlockHashInterval);
 
-// 每5min更新一次wsol余额
-// let wsolMint = 'So11111111111111111111111111111111111111112';
-// let ATA = await getAssociatedTokenAddress(new PublicKey(wsolMint),payer.publicKey);
-// async function getWsolBalance(ATA:PublicKey) {
-//     try {
-//         const result = await pubCon.getTokenAccountBalance(ATA);
-//         return result.value.uiAmount;
-//     } catch (err) {
-//         console.error(`getWsolBalance error:`)
-//     }
-// }
-// let getWsolBalanceInterval = 1000*60*5;
-// var wsolBalance =await getWsolBalance(ATA);
-// console.log(`wsolBalance: ${wsolBalance} sol`);
-// setInterval(async () => {
-//     wsolBalance = await getWsolBalance(ATA);
-// }, getWsolBalanceInterval);
+// 每10min更新一次wsol余额
+let wsolMint = 'So11111111111111111111111111111111111111112';
+let ATA = await getAssociatedTokenAddress(new PublicKey(wsolMint),payer.publicKey);
+async function getWsolBalance(ATA:PublicKey) : Promise<number> {
+    try {
+        const result = await pubCon.getTokenAccountBalance(ATA);
+        return (result.value.uiAmount as number);
+    } catch (err) {
+        console.error(`getWsolBalance error:`)
+        return initalTradeSol;
+    }
+}
+let getWsolBalanceInterval = 1000*60*10;
+var wsolBalance = await getWsolBalance(ATA);
+let trade_sol = Math.floor(wsolBalance*tradePercent*100)/100;
+console.log(`wsolBalance: ${wsolBalance} sol`);
+setInterval(async () => {
+    try {
+        wsolBalance = Math.floor((await getWsolBalance(ATA))*tradePercent*100)/100;
+    } catch (err) {
+        console.error(`getWsolBalance error: ${err}`)
+    }
+}, getWsolBalanceInterval);
 
 // 监测套利机会
 interface monitorParams {
-    pair1:string,
-    pair2:string,
+    pair1:pair,
+    pair2:pair,
     con:Connection,
     jupCon:DefaultApi
 }
@@ -83,8 +89,8 @@ async function monitor(monitorParams:monitorParams) {
     const {pair1,pair2,con,jupCon} = monitorParams;
     // 获取交易对信息
     const pair1_to_pair2 : QuoteGetRequest = {
-        inputMint: pair1,
-        outputMint: pair2,
+        inputMint: pair1.mint,
+        outputMint: pair2.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
         onlyDirectRoutes: true,
         slippageBps: 0,
@@ -92,8 +98,8 @@ async function monitor(monitorParams:monitorParams) {
         swapMode: QuoteGetSwapModeEnum.ExactIn
     }
     const pair2_to_pair1 : QuoteGetRequest = {
-        inputMint: pair2,
-        outputMint: pair1,
+        inputMint: pair2.mint,
+        outputMint: pair1.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
         onlyDirectRoutes: true,
         slippageBps: 0,
@@ -103,8 +109,8 @@ async function monitor(monitorParams:monitorParams) {
 
     try {
         const [quote0Resp ,quote1Resp] = await Promise.all([
-            getQuote(pair1_to_pair2,jupCon,"pair1_to_pair2"),
-            getQuote(pair2_to_pair1,jupCon,"pair2_to_pair1")
+            getQuote(pair1_to_pair2,jupCon,`${pair1.symbol} -> ${pair2.symbol}`),
+            getQuote(pair2_to_pair1,jupCon,`${pair2.symbol} -> ${pair1.symbol}`)
         ])
         if (quote0Resp?.routePlan[0].swapInfo.ammKey === quote1Resp?.routePlan[0].swapInfo.ammKey) {
             console.log(`same pool, return...`)
@@ -113,9 +119,9 @@ async function monitor(monitorParams:monitorParams) {
         let p1 = Number(quote0Resp?.outAmount)/Number(quote0Resp?.inAmount);
         let p2 = Number(quote1Resp?.inAmount)/Number(quote1Resp?.outAmount);
         if (p2/p1 > threshold) {
-            console.log(`pair1_to_pair2: ${p1}`)
-            console.log(`pair2_to_pair1: ${p2}`)
-            console.log(`pair2_to_pair1/pair1_to_pair2: ${p2/p1}`)
+            console.log(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
+            console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
+            console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
 
             let mergedQuoteResp = quote0Resp as QuoteResponse;
             mergedQuoteResp.outputMint = (quote1Resp as QuoteResponse).outputMint;
@@ -134,7 +140,7 @@ async function monitor(monitorParams:monitorParams) {
             try {
                 let start = new Date().getTime();
                 let instructions = await jupCon.swapInstructionsPost({ swapRequest: swapData })
-                console.log(`swapInstructionsPost time cost:`,new Date().getTime()-start)
+                console.log(`(${pair1.symbol},${pair2.symbol}) swapInstructionsPost time cost:`,new Date().getTime()-start)
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
@@ -171,7 +177,6 @@ async function monitor(monitorParams:monitorParams) {
                 ixs.push(tipInstruction);
 
                 // ALT
-                // ALT
                 const addressLookupTableAccounts = await Promise.all(
                     instructions.addressLookupTableAddresses.map(async (address) => {
                         const result = await con.getAddressLookupTable(new PublicKey(address));
@@ -189,25 +194,36 @@ async function monitor(monitorParams:monitorParams) {
                 const transaction = new VersionedTransaction(messageV0);
                 transaction.sign([payer]);
 
-                console.log('generate tx cost:',new Date().getTime()-start)
+                // console.log('generate tx cost:',new Date().getTime()-start)
+                console.log(`(${pair1.symbol},${pair2.symbol}) generate tx cost:`,new Date().getTime()-start)
                 // send tx
                 try {
                     await sendTxToCons(transaction,bundle_apis);
-                    console.log('from generate to send tx cost:',new Date().getTime()-start)
+                    console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {
-                    console.error(`sendTxToCons error:`)
+                    console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)
                 } 
             } catch (err) {
-                console.error(`swapInstructions generate error:`)
+                console.error(`(${pair1.symbol},${pair2.symbol}) swapInstructions generate error:`)
             }
         } 
     } catch (err) {
-        console.error(`getQuote error:`)
+        console.error(`(${pair1.symbol},${pair2.symbol}) getQuote error:`)
     }
 }
 
 // 主函数
-let {waitTime,pair1,pair2s} = trade_pairs;
+let {waitTime,pair1,getPairsInterval} = trade_pairs;
+var pair2s = await getPairs();
+// 每隔一段时间获取一次交易对
+setInterval(async () => {
+    try {
+        pair2s = await getPairs();
+    } catch (err) {
+        console.error(`getPairs error, use last pairs...`)
+    }
+}, getPairsInterval);
+
 let num = 0;
 async function main(num:number) {
     // 监测套利机会
