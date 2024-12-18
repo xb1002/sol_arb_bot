@@ -54,29 +54,29 @@ setInterval(async () => {
 }, getBlockHashInterval);
 
 // 每5min更新一次wsol余额
-let wsolMint = 'So11111111111111111111111111111111111111112';
-let ATA = await getAssociatedTokenAddress(new PublicKey(wsolMint),payer.publicKey);
-async function getWsolBalance(ATA:PublicKey) {
-    try {
-        const result = await pubCon.getTokenAccountBalance(ATA);
-        return result.value.uiAmount;
-    } catch (err) {
-        console.error(`getWsolBalance error:`)
-    }
-}
-let getWsolBalanceInterval = 1000*60*5;
-var wsolBalance =await getWsolBalance(ATA);
-console.log(`wsolBalance: ${wsolBalance} sol`);
-setInterval(async () => {
-    wsolBalance = await getWsolBalance(ATA);
-}, getWsolBalanceInterval);
+// let wsolMint = 'So11111111111111111111111111111111111111112';
+// let ATA = await getAssociatedTokenAddress(new PublicKey(wsolMint),payer.publicKey);
+// async function getWsolBalance(ATA:PublicKey) {
+//     try {
+//         const result = await pubCon.getTokenAccountBalance(ATA);
+//         return result.value.uiAmount;
+//     } catch (err) {
+//         console.error(`getWsolBalance error:`)
+//     }
+// }
+// let getWsolBalanceInterval = 1000*60*5;
+// var wsolBalance =await getWsolBalance(ATA);
+// console.log(`wsolBalance: ${wsolBalance} sol`);
+// setInterval(async () => {
+//     wsolBalance = await getWsolBalance(ATA);
+// }, getWsolBalanceInterval);
 
-// 保存addressLookupTableAccount信息，并且每8s更新一个batch
+// 保存addressLookupTableAccount信息，并且每2s更新一个batch
 let addressLookupTableAccount_list : AddressLookupTableAccount[] = [];
-let maxAddressLookupTableAccount = 200;
-let addressLookupTableAccountBatch = 5;
+let maxAddressLookupTableAccount = 400;
+let addressLookupTableAccountBatch = 4;
 let addressLookupTableAccountBatchNum = 0;
-let addressLookupTableAccountBatchInterval = 8*1000;
+let addressLookupTableAccountBatchInterval = 2*1000;
 async function _getAddressLookupTable(item:AddressLookupTableAccount) {
     try {
         const result = await pubCon.getAddressLookupTable(item.key);
