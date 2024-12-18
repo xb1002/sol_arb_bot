@@ -2,9 +2,9 @@ import {LAMPORTS_PER_SOL, Commitment} from '@solana/web3.js';
 
 export const config = {
     status: "confirmed" as Commitment, // 确认状态
-    jitoTip:0.000002* LAMPORTS_PER_SOL, // 单位LAMPORTS
+    jitoTip:0.000003* LAMPORTS_PER_SOL, // 单位LAMPORTS
     initalTradeSol:0.35, // 单位SOL
-    threshold:1.004, // 阈值
+    threshold:1.005, // 阈值
     JitoTipAccounts: [
         "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
         "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
@@ -23,7 +23,7 @@ export const config = {
 }
 
 export const trade_pairs = {
-    waitTime: 1, // 单位秒
+    waitTime: 0.3, // 单位秒
     pair1: "So11111111111111111111111111111111111111112",
     pair2s: [
         "9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump",

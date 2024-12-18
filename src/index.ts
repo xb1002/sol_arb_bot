@@ -71,12 +71,12 @@ setInterval(async () => {
     wsolBalance = await getWsolBalance(ATA);
 }, getWsolBalanceInterval);
 
-// 保存addressLookupTableAccount信息，并且每10s更新一个batch
+// 保存addressLookupTableAccount信息，并且每8s更新一个batch
 let addressLookupTableAccount_list : AddressLookupTableAccount[] = [];
-let maxAddressLookupTableAccount = 50;
+let maxAddressLookupTableAccount = 200;
 let addressLookupTableAccountBatch = 5;
 let addressLookupTableAccountBatchNum = 0;
-let addressLookupTableAccountBatchInterval = 10000;
+let addressLookupTableAccountBatchInterval = 8*1000;
 async function _getAddressLookupTable(item:AddressLookupTableAccount) {
     try {
         const result = await pubCon.getAddressLookupTable(item.key);
@@ -194,7 +194,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 // 4. 调用computeBudget设置优先费
                 const computeUnitPriceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
-                    microLamports: 6000,
+                    microLamports: 12345,
                 })
                 cu_ixs.push(computeUnitPriceInstruction);
                 // 合并cu_ixs
