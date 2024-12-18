@@ -16,8 +16,9 @@ import { wait, instructionFormat, getQuote, sendTxToCons } from './lib.js';
 import { config,trade_pairs } from './config.js';
 
 // 导入环境变量
-const QUICKNODE_RPC = process.env.QUICKNODE_API;
-const CHAINSTACK_RPC = process.env.CHAINSTACK_API;
+// const QUICKNODE_RPC = process.env.QUICKNODE_API;
+// const CHAINSTACK_RPC = process.env.CHAINSTACK_API;
+const RPC = process.env.RPC;
 const JUPITER_RPC = process.env.JUPITER_API;
 const SECRET_KEY = process.env.SECRET_KEY;
 // 生成钱包
@@ -34,9 +35,9 @@ let {status,
 let trade_sol = initalTradeSol;
 
 // 构造RPC池
-const rpcs : string[] = [QUICKNODE_RPC as string, CHAINSTACK_RPC as string];
+const rpc = RPC as string
 // 构造连接池
-const cons : Connection[] = rpcs.map((rpcUrl) => new Connection(rpcUrl, status));
+const con : Connection = new Connection(rpc, status);
 const pubCon: Connection = new Connection(clusterApiUrl('mainnet-beta'), status);
 
 // 创建Jupiter API客户端
@@ -70,45 +71,6 @@ setInterval(async () => {
 // setInterval(async () => {
 //     wsolBalance = await getWsolBalance(ATA);
 // }, getWsolBalanceInterval);
-
-// 保存addressLookupTableAccount信息，并且每8s更新一个batch
-let addressLookupTableAccount_list : AddressLookupTableAccount[] = [];
-let maxAddressLookupTableAccount = 200;
-let addressLookupTableAccountBatch = 5;
-let addressLookupTableAccountBatchNum = 0;
-let addressLookupTableAccountBatchInterval = 8*1000;
-async function _getAddressLookupTable(item:AddressLookupTableAccount) {
-    try {
-        const result = await pubCon.getAddressLookupTable(item.key);
-        addressLookupTableAccount_list.push(result.value as AddressLookupTableAccount);
-    } catch (err) {
-        console.error(`getAddressLookupTable error:`)
-    }
-}
-setInterval(async () => {
-    // 处理多余的addressLookupTableAccount
-    let totalNum = addressLookupTableAccount_list.length
-    if (totalNum === 0) {
-        return;
-    }
-    if (totalNum > maxAddressLookupTableAccount) {
-        addressLookupTableAccount_list = addressLookupTableAccount_list.slice(
-            totalNum-maxAddressLookupTableAccount,totalNum
-        );
-    }
-    // 更新addressLookupTableAccount
-    if (addressLookupTableAccountBatchNum+addressLookupTableAccountBatch > totalNum) {
-        addressLookupTableAccount_list.slice(addressLookupTableAccountBatchNum,totalNum).map(async (item) => {
-            _getAddressLookupTable(item);
-        })
-        addressLookupTableAccountBatchNum = 0;
-    } else {
-        addressLookupTableAccount_list.slice(addressLookupTableAccountBatchNum,addressLookupTableAccountBatchNum+addressLookupTableAccountBatch).map(async (item) => {
-            _getAddressLookupTable(item);
-        })
-        addressLookupTableAccountBatchNum += addressLookupTableAccountBatch;
-    }
-}, addressLookupTableAccountBatchInterval);
 
 // 监测套利机会
 interface monitorParams {
@@ -209,16 +171,10 @@ async function monitor(monitorParams:monitorParams) {
                 ixs.push(tipInstruction);
 
                 // ALT
+                // ALT
                 const addressLookupTableAccounts = await Promise.all(
                     instructions.addressLookupTableAddresses.map(async (address) => {
-                        if (addressLookupTableAccount_list.length > 0) {
-                            const result = addressLookupTableAccount_list.find((item) => item.key.toBase58() === address);
-                            if (result) {
-                                return result;
-                            }
-                        }
                         const result = await con.getAddressLookupTable(new PublicKey(address));
-                        addressLookupTableAccount_list.push(result.value as AddressLookupTableAccount);
                         return result.value as AddressLookupTableAccount;
                     })
                 );
@@ -242,7 +198,7 @@ async function monitor(monitorParams:monitorParams) {
                     console.error(`sendTxToCons error:`)
                 } 
             } catch (err) {
-                console.error(`swapInstructionsPost error:`)
+                console.error(`swapInstructions generate error:`)
             }
         } 
     } catch (err) {
@@ -258,7 +214,7 @@ async function main(num:number) {
     await monitor({
         pair1:pair1,
         pair2:pair2s[num],
-        con:cons[Math.floor(Math.random()*cons.length)],
+        con:con,
         jupCon:jupCon
     })
     console.log(`waiting for ${waitTime}s...`)
