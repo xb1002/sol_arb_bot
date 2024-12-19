@@ -12,7 +12,7 @@ import { getAssociatedTokenAddress } from '@solana/spl-token';
 import 'dotenv/config';
 import bs58 from 'bs58';
 import axios from 'axios';
-import { wait, instructionFormat, getQuote, sendTxToBundle,getPairs } from './lib.js';
+import { wait, instructionFormat, getQuote, sendTxToBundle,sendTxToJito,getPairs } from './lib.js';
 import { config,trade_pairs,pair } from './config.js';
 import WebSocket from 'ws';
 import os from 'os';
@@ -358,6 +358,7 @@ async function monitor(monitorParams:monitorParams) {
                 // send tx
                 try {
                     await sendTxToBundle(transaction,BUNDLE_API);
+                    // await sendTxToJito(transaction,BUNDLE_API);
                     console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {
                     console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)

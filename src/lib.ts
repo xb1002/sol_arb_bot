@@ -50,10 +50,34 @@ export async function sendTxToBundle(tx:VersionedTransaction,bundle_api:string) 
         }).then((resp) => {
             console.log(`sent bundle, id: ${resp.data.result}`)
         }).catch((err) => {
-            console.error(`send bundle error:`)
+            console.error(`send bundle error: ${err}`)
         })
     } catch (err) {
-        console.error(`sendTxToCons error:`)
+        console.error(`sendTxToCons error: ${err}`)
+    }
+}
+
+export async function sendTxToJito(tx:VersionedTransaction,bundle_api:string) {
+    try {
+        const serializedTransaction = tx.serialize();
+        const base58Transaction = bs58.encode(serializedTransaction);
+        const params = {
+            jsonrpc: "2.0",
+            id: 1,
+            method: "sendTransaction",
+            params: [base58Transaction]
+        };
+        axios.post(new URL("api/v1/transactions",bundle_api).href, params, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then((resp) => {
+            console.log(`sent tx: ${resp.data.result}`)
+        }).catch((err) => {
+            console.error(`sendTxToJito error: ${err}`)
+        })
+    } catch (err) {
+        console.error(`sendTxToJito error: ${err}`)
     }
 }
 
@@ -76,6 +100,6 @@ export async function getPairs() : Promise<pair[]> {
             return result as pair[];
         }
     } catch (err) {
-        throw new Error(`getPairs error:`)
+        throw new Error(`getPairs error: ${err}`)
     }
 }
