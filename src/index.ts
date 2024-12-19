@@ -14,6 +14,7 @@ import bs58 from 'bs58';
 import axios from 'axios';
 import { wait, instructionFormat, getQuote, sendTxToCons,getPairs } from './lib.js';
 import { config,trade_pairs,pair } from './config.js';
+import WebSocket from 'ws';
 
 // 导入环境变量
 // const QUICKNODE_RPC = process.env.QUICKNODE_API;
@@ -26,6 +27,7 @@ const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as str
 
 // 从config.ts中导入配置
 let {status,
+    maxListen,
     jitoTip,
     initalTradeSol,
     threshold,
@@ -77,6 +79,139 @@ setInterval(async () => {
         console.error(`getWsolBalance error: ${err}`)
     }
 }, getWsolBalanceInterval);
+
+
+
+
+// 保存addressLookupTableAccounts
+let addLookupAccounts:AddressLookupTableAccount[] = [];
+interface subscribeListItem {
+    id:number,
+    address:string,
+    subid:number | null
+}
+let subscribeList:subscribeListItem[] = [];
+const wsUrl = 'wss://api.mainnet-beta.solana.com/';
+let ws:WebSocket;
+
+function connectWebSocket() {
+    // 创建 WebSocket 连接
+    ws = new WebSocket(wsUrl);
+    ws.on('open', () => {
+        console.log('ws connected');
+        setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.ping(); // 如果 WebSocket 支持 ping，可以使用此方法
+                console.log('Sending heartbeat...');
+            }
+        }, 10000);  // 每 10 秒发送一次心跳
+    });
+
+    ws.on('message', async (data) => {
+        const msg = JSON.parse(Buffer.from(data as string, 'hex').toString('utf-8'));
+        console.log(msg);
+        if (msg.result) {
+            if (msg.result === true) {
+                console.log(`Unsubscribe success, id: ${msg.id}`);
+            } else {
+                let index = subscribeList.findIndex((sub) => sub.id === msg.id);
+                if (index !== -1) {
+                    subscribeList[index].subid = msg.result;
+                } else {
+                    console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                }
+            }
+        }
+        if (msg.method === 'accountNotification') {
+            const address = msg.params.result.value.parsed.info.authority;
+            const result = await con.getAddressLookupTable(new PublicKey(address));
+            let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
+            if (index !== -1) {
+                addLookupAccounts[index] = result.value as AddressLookupTableAccount;
+            } else {
+                console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+            }
+        }
+    });
+
+    ws.on('close', () => {
+        console.log('ws closed');
+        // 连接关闭时尝试重新连接
+        setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            connectWebSocket();
+            subscribeList.forEach((sub) => {
+                subscribeAccount(sub.address);
+            });
+        }, 5000);  // 5秒后重连
+    });
+
+    ws.on('error', (err) => {
+        console.error(`ws error: ${err}`);
+        // 出现错误时也尝试重连
+        setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            connectWebSocket();
+            subscribeList.forEach((sub) => {
+                subscribeAccount(sub.address);
+            });
+        }, 5000);  // 5秒后重连
+    });
+}
+
+function subscribeAccount(address:string) {
+    let id = Math.floor(Math.random() * 100000);
+    let params = {
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "accountSubscribe",
+        "params": [
+          address,
+          {
+            "encoding": "jsonParsed",
+            "commitment": "finalized"
+          }
+        ]
+    }
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(params));
+        subscribeList.push({id:id,address:address,subid:null});
+    } else {
+        console.error('WebSocket not connected');
+    }
+}
+
+function unsubscribeAccount(address:string) {
+    let subid = subscribeList.find((sub) => sub.address === address)?.subid;
+    let id = subscribeList.find((sub) => sub.address === address)?.id;
+    let params = {
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "accountUnsubscribe",
+        "params": [subid]
+    }
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(params));
+        subscribeList = subscribeList.filter((sub) => sub.address !== address);
+    } else {
+        console.error('WebSocket not connected');
+    }
+}
+
+// 连接
+connectWebSocket();
+
+// 设置最大监听数
+const maxListenNum = maxListen;
+setInterval(() => {
+    // 如果addressLookupTableAccounts数量大于maxListenNum，取消订阅并且删除
+    if (addLookupAccounts.length > maxListenNum) {
+        let address = addLookupAccounts[0].key.toBase58();
+        unsubscribeAccount(address);
+        addLookupAccounts.shift();
+    }
+}, 5000);
+
 
 // 监测套利机会
 interface monitorParams {
@@ -177,10 +312,24 @@ async function monitor(monitorParams:monitorParams) {
                 ixs.push(tipInstruction);
 
                 // ALT
+                // const addressLookupTableAccounts = await Promise.all(
+                //     instructions.addressLookupTableAddresses.map(async (address) => {
+                //         const result = await con.getAddressLookupTable(new PublicKey(address));
+                //         return result.value as AddressLookupTableAccount;
+                //     })
+                // );
+
                 const addressLookupTableAccounts = await Promise.all(
                     instructions.addressLookupTableAddresses.map(async (address) => {
-                        const result = await con.getAddressLookupTable(new PublicKey(address));
-                        return result.value as AddressLookupTableAccount;
+                        let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
+                        if (index !== -1) {
+                            return addLookupAccounts[index];
+                        } else {
+                            const result = await con.getAddressLookupTable(new PublicKey(address));
+                            addLookupAccounts.push(result.value as AddressLookupTableAccount);
+                            subscribeAccount(address);
+                            return result.value as AddressLookupTableAccount;
+                        }
                     })
                 );
 

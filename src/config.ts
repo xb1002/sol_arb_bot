@@ -2,6 +2,7 @@ import {LAMPORTS_PER_SOL, Commitment} from '@solana/web3.js';
 
 export const config = {
     status: "confirmed" as Commitment, // 确认状态
+    maxListen: 200, // 最大监听数
     jitoTip:0.000003* LAMPORTS_PER_SOL, // 单位LAMPORTS
     initalTradeSol:0.6, // 单位SOL
     threshold:1.005, // 阈值
@@ -30,7 +31,7 @@ interface timeSpan {
 }
 export const getPairsParams = {
     timeSpan: '5m' as timeSpanType,
-    pairNum : 7
+    pairNum : 7,
 }
 
 export interface pair {
