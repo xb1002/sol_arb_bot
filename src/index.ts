@@ -15,6 +15,7 @@ import axios from 'axios';
 import { wait, instructionFormat, getQuote, sendTxToCons,getPairs } from './lib.js';
 import { config,trade_pairs,pair } from './config.js';
 import WebSocket from 'ws';
+import os from 'os';
 
 // 导入环境变量
 // const QUICKNODE_RPC = process.env.QUICKNODE_API;
@@ -109,7 +110,12 @@ function connectWebSocket() {
 
     ws.on('message', async (data) => {
         try {
-            const msg = JSON.parse(Buffer.from(data as string, 'hex').toString('utf-8'));
+            let msg;
+            if (os.platform() === 'win32') {
+                msg = JSON.parse(Buffer.from(data as string, 'hex').toString('utf-8'));
+            } else {
+                msg = JSON.parse(data as string);
+            }
             console.log(msg);
             if (msg.result) {
                 if (msg.result === true) {
