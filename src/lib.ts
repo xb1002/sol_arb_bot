@@ -3,6 +3,7 @@ import { Instruction, QuoteGetRequest, DefaultApi } from '@jup-ag/api';
 import {getPairsParams, pair} from './config.js'
 import bs58 from 'bs58';
 import axios from 'axios';
+import fs from 'fs';
 
 export function instructionFormat(instruction : Instruction) {
     return {
@@ -49,6 +50,12 @@ export async function sendTxToBundle(tx:VersionedTransaction,bundle_api:string) 
             }
         }).then((resp) => {
             console.log(`sent bundle, id: ${resp.data.result}`)
+            // 保存到log文件
+            fs.appendFile('./log.txt', `${new Date().toLocaleString()} -> sent bundle, id: ${resp.data.result}\n`, (err) => {
+                if (err) {
+                    console.error(`write log error: ${err}`)
+                }
+            })
         }).catch((err) => {
             console.error(`send bundle error: ${err}`)
         })
@@ -73,6 +80,12 @@ export async function sendTxToJito(tx:VersionedTransaction,bundle_api:string) {
             }
         }).then((resp) => {
             console.log(`sent tx: ${resp.data.result}`)
+            // 保存到log文件
+            fs.appendFile('./log.txt', `${new Date().toLocaleString()} -> sent tx: ${resp.data.result}\n`, (err) => {
+                if (err) {
+                    console.error(`write log error: ${err}`)
+                }
+            })
         }).catch((err) => {
             console.error(`sendTxToJito error: ${err}`)
         })
