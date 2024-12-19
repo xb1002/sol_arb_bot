@@ -20,6 +20,13 @@ export const config = {
     ],
 }
 
+export const batchBundleApi = [
+    "https://mainnet.block-engine.jito.wtf",
+    "https://ny.mainnet.block-engine.jito.wtf",
+    "https://tokyo.mainnet.block-engine.jito.wtf",
+    "https://frankfurt.mainnet.block-engine.jito.wtf"
+]
+
 // gmgn查询参数
 type timeSpanType = '5m' | '1h' | '6h' 
 interface timeSpan {

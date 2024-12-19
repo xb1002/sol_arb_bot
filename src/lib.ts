@@ -64,6 +64,16 @@ export async function sendTxToBundle(tx:VersionedTransaction,bundle_api:string) 
     }
 }
 
+export async function batchSendTxToBundle(txs:VersionedTransaction,bundle_apis:string[]) {
+    try {
+        bundle_apis.map(async (bundle_api) => {
+            await sendTxToBundle(txs,bundle_api)
+        })
+    } catch (err) {
+        console.error(`batchSendTxToBundle error: ${err}`)
+    }
+}
+
 export async function sendTxToJito(tx:VersionedTransaction,bundle_api:string) {
     try {
         const serializedTransaction = tx.serialize();
@@ -91,6 +101,16 @@ export async function sendTxToJito(tx:VersionedTransaction,bundle_api:string) {
         })
     } catch (err) {
         console.error(`sendTxToJito error: ${err}`)
+    }
+}
+
+export async function batchSendTxToJito(txs:VersionedTransaction,bundle_apis:string[]) {
+    try {
+        bundle_apis.map(async (bundle_api) => {
+            await sendTxToJito(txs,bundle_api)
+        })
+    } catch (err) {
+        console.error(`batchSendTxToJito error: ${err}`)
     }
 }
 
