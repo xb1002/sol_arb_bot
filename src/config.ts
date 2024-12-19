@@ -6,7 +6,7 @@ export const config = {
     minJitoTip:0.000003* LAMPORTS_PER_SOL, // 单位LAMPORTS
     feePercent:0.2, // 手续费比例
     initalTradeSol:0.6, // 单位SOL
-    threshold:1.005, // 阈值
+    threshold:1.001, // 阈值
     tradePercent:0.98, // 交易总的wsol比例
     JitoTipAccounts: [
         "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
