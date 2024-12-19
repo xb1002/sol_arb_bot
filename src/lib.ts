@@ -33,7 +33,7 @@ export async function getQuote(quoteParams:QuoteGetRequest,jupCon:DefaultApi,nam
 }
 
 // 发送交易
-export async function sendTxToCons(tx:VersionedTransaction,bundle_apis:string[]) {
+export async function sendTxToBundle(tx:VersionedTransaction,bundle_api:string) {
     try {
         const serializedTransaction = tx.serialize();
         const base58Transaction = bs58.encode(serializedTransaction);
@@ -43,16 +43,14 @@ export async function sendTxToCons(tx:VersionedTransaction,bundle_apis:string[])
             method: "sendBundle",
             params: [[base58Transaction]]
         };
-        bundle_apis.map(async (api) => {
-                axios.post(api, bundle, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                }).then((resp) => {
-                    console.log(`sent bundle, id: ${resp.data.result}`)
-                }).catch((err) => {
-                    console.error(`send bundle error:`)
-                })
+        axios.post(new URL("api/v1/bundles",bundle_api).href, bundle, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then((resp) => {
+            console.log(`sent bundle, id: ${resp.data.result}`)
+        }).catch((err) => {
+            console.error(`send bundle error:`)
         })
     } catch (err) {
         console.error(`sendTxToCons error:`)

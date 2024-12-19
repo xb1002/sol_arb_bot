@@ -12,7 +12,7 @@ import { getAssociatedTokenAddress } from '@solana/spl-token';
 import 'dotenv/config';
 import bs58 from 'bs58';
 import axios from 'axios';
-import { wait, instructionFormat, getQuote, sendTxToCons,getPairs } from './lib.js';
+import { wait, instructionFormat, getQuote, sendTxToBundle,getPairs } from './lib.js';
 import { config,trade_pairs,pair } from './config.js';
 import WebSocket from 'ws';
 import os from 'os';
@@ -23,18 +23,19 @@ import os from 'os';
 const RPC = process.env.RPC;
 const JUPITER_RPC = process.env.JUPITER_API;
 const SECRET_KEY = process.env.SECRET_KEY;
+const BUNDLE_API = process.env.BUNDLE_API as string;
 // 生成钱包
 const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as string)));
 
 // 从config.ts中导入配置
 let {status,
     maxListen,
-    jitoTip,
+    minJitoTip,
+    feePercent,
     initalTradeSol,
     threshold,
     tradePercent,
     JitoTipAccounts,
-    bundle_apis
 } = config;
 
 // 构造RPC池
@@ -241,7 +242,7 @@ async function monitor(monitorParams:monitorParams) {
         inputMint: pair1.mint,
         outputMint: pair2.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
-        onlyDirectRoutes: true,
+        onlyDirectRoutes: false,
         slippageBps: 0,
         maxAccounts: 30,
         swapMode: QuoteGetSwapModeEnum.ExactIn
@@ -250,7 +251,7 @@ async function monitor(monitorParams:monitorParams) {
         inputMint: pair2.mint,
         outputMint: pair1.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
-        onlyDirectRoutes: true,
+        onlyDirectRoutes: false,
         slippageBps: 0,
         // maxAccounts: 30,
         swapMode: QuoteGetSwapModeEnum.ExactOut
@@ -272,11 +273,14 @@ async function monitor(monitorParams:monitorParams) {
             console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
             console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
 
+            // 计算Jito Tip
+            let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-1)*trade_sol*LAMPORTS_PER_SOL*feePercent));
+
             let mergedQuoteResp = quote0Resp as QuoteResponse;
             mergedQuoteResp.outputMint = (quote1Resp as QuoteResponse).outputMint;
-            mergedQuoteResp.outAmount = String(pair1_to_pair2.amount);
-            mergedQuoteResp.otherAmountThreshold = String(pair1_to_pair2.amount);
-            mergedQuoteResp.priceImpactPct = "0";
+            mergedQuoteResp.outAmount = String(pair1_to_pair2.amount+jitoTip);
+            mergedQuoteResp.otherAmountThreshold = String(pair1_to_pair2.amount+jitoTip);
+            mergedQuoteResp.priceImpactPct = String(0);
             mergedQuoteResp.routePlan = mergedQuoteResp.routePlan.concat((quote1Resp as QuoteResponse).routePlan);
 
             let swapData : SwapRequest = {
@@ -293,7 +297,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
-                let cu_num = 200000;
+                let cu_num = 350000;
 
                 // 1. setup instructions
                 const setupInstructions = instructions.setupInstructions.map(instructionFormat);
@@ -325,14 +329,6 @@ async function monitor(monitorParams:monitorParams) {
                 })
                 ixs.push(tipInstruction);
 
-                // ALT
-                // const addressLookupTableAccounts = await Promise.all(
-                //     instructions.addressLookupTableAddresses.map(async (address) => {
-                //         const result = await con.getAddressLookupTable(new PublicKey(address));
-                //         return result.value as AddressLookupTableAccount;
-                //     })
-                // );
-
                 const addressLookupTableAccounts = await Promise.all(
                     instructions.addressLookupTableAddresses.map(async (address) => {
                         let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
@@ -361,7 +357,7 @@ async function monitor(monitorParams:monitorParams) {
                 console.log(`(${pair1.symbol},${pair2.symbol}) generate tx cost:`,new Date().getTime()-start)
                 // send tx
                 try {
-                    await sendTxToCons(transaction,bundle_apis);
+                    await sendTxToBundle(transaction,BUNDLE_API);
                     console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {
                     console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)

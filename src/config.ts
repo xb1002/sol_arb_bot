@@ -3,7 +3,8 @@ import {LAMPORTS_PER_SOL, Commitment} from '@solana/web3.js';
 export const config = {
     status: "confirmed" as Commitment, // 确认状态
     maxListen: 200, // 最大监听数
-    jitoTip:0.000003* LAMPORTS_PER_SOL, // 单位LAMPORTS
+    minJitoTip:0.000003* LAMPORTS_PER_SOL, // 单位LAMPORTS
+    feePercent:0.2, // 手续费比例
     initalTradeSol:0.6, // 单位SOL
     threshold:1.005, // 阈值
     tradePercent:0.98, // 交易总的wsol比例
@@ -17,11 +18,6 @@ export const config = {
         "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
         "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT"
     ],
-    bundle_apis : [
-        "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/bundles",
-        "https://ny.mainnet.block-engine.jito.wtf/api/v1/bundles",
-        "https://mainnet.block-engine.jito.wtf/api/v1/bundles"
-    ]
 }
 
 // gmgn查询参数
@@ -39,7 +35,7 @@ export interface pair {
     mint: string
 }
 export const trade_pairs = {
-    waitTime: 0.3, // 单位秒
+    waitTime: 0.35, // 单位秒
     pair1: {symbol: "wsol", mint: "So11111111111111111111111111111111111111112"} as pair,
-    getPairsInterval: 1000*60*30, // 单位毫秒
+    getPairsInterval: 1000*60*10, // 单位毫秒
 }
