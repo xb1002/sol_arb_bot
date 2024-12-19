@@ -244,7 +244,8 @@ async function monitor(monitorParams:monitorParams) {
         inputMint: pair1.mint,
         outputMint: pair2.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
-        onlyDirectRoutes: false,
+        // onlyDirectRoutes: false,
+        onlyDirectRoutes: true,
         slippageBps: 0,
         maxAccounts: 30,
         swapMode: QuoteGetSwapModeEnum.ExactIn
@@ -253,7 +254,8 @@ async function monitor(monitorParams:monitorParams) {
         inputMint: pair2.mint,
         outputMint: pair1.mint,
         amount: LAMPORTS_PER_SOL*trade_sol,
-        onlyDirectRoutes: false,
+        // onlyDirectRoutes: false,
+        onlyDirectRoutes: true,
         slippageBps: 0,
         // maxAccounts: 30,
         swapMode: QuoteGetSwapModeEnum.ExactOut
@@ -299,7 +301,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
-                let cu_num = 350000;
+                let cu_num = 200000;
 
                 // 1. setup instructions
                 const setupInstructions = instructions.setupInstructions.map(instructionFormat);
@@ -317,7 +319,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 // 4. 调用computeBudget设置优先费
                 const computeUnitPriceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
-                    microLamports: 12345,
+                    microLamports: 66666,
                 })
                 cu_ixs.push(computeUnitPriceInstruction);
                 // 合并cu_ixs
@@ -361,8 +363,8 @@ async function monitor(monitorParams:monitorParams) {
                 try {
                     // await sendTxToBundle(transaction,BUNDLE_API);
                     // await sendTxToJito(transaction,BUNDLE_API);
-                    // await batchSendTxToBundle(transaction,batchBundleApis);
-                    await batchSendTxToJito(transaction,batchBundleApis);
+                    await batchSendTxToBundle(transaction,batchBundleApis);
+                    // await batchSendTxToJito(transaction,batchBundleApis);
                     console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {
                     console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)
