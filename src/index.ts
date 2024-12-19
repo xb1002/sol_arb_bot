@@ -153,9 +153,8 @@ function connectWebSocket() {
         setTimeout(() => {
             console.log('Attempting to reconnect...');
             connectWebSocket();
-            subscribeList.forEach((sub) => {
-                subscribeAccount(sub.address);
-            });
+            subscribeList = [];
+            addLookupAccounts = [];
         }, 5000);  // 5秒后重连
     });
 
@@ -165,9 +164,8 @@ function connectWebSocket() {
         setTimeout(() => {
             console.log('Attempting to reconnect...');
             connectWebSocket();
-            subscribeList.forEach((sub) => {
-                subscribeAccount(sub.address);
-            });
+            subscribeList = [];
+            addLookupAccounts = [];
         }, 5000);  // 5秒后重连
     });
 }
@@ -207,6 +205,7 @@ function unsubscribeAccount(address:string) {
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify(params));
             subscribeList = subscribeList.filter((sub) => sub.address !== address);
+            addLookupAccounts = addLookupAccounts.filter((account) => account.key.toBase58() !== address);
         } else {
             console.error('WebSocket not connected');
         }
@@ -225,7 +224,6 @@ setInterval(() => {
     if (addLookupAccounts.length > maxListenNum) {
         let address = addLookupAccounts[0].key.toBase58();
         unsubscribeAccount(address);
-        addLookupAccounts.shift();
     }
 }, 5000);
 
