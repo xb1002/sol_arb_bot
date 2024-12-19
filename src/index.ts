@@ -108,29 +108,33 @@ function connectWebSocket() {
     });
 
     ws.on('message', async (data) => {
-        const msg = JSON.parse(Buffer.from(data as string, 'hex').toString('utf-8'));
-        console.log(msg);
-        if (msg.result) {
-            if (msg.result === true) {
-                console.log(`Unsubscribe success, id: ${msg.id}`);
-            } else {
-                let index = subscribeList.findIndex((sub) => sub.id === msg.id);
-                if (index !== -1) {
-                    subscribeList[index].subid = msg.result;
+        try {
+            const msg = JSON.parse(Buffer.from(data as string, 'hex').toString('utf-8'));
+            console.log(msg);
+            if (msg.result) {
+                if (msg.result === true) {
+                    console.log(`Unsubscribe success, id: ${msg.id}`);
                 } else {
-                    console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                    let index = subscribeList.findIndex((sub) => sub.id === msg.id);
+                    if (index !== -1) {
+                        subscribeList[index].subid = msg.result;
+                    } else {
+                        console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                    }
                 }
             }
-        }
-        if (msg.method === 'accountNotification') {
-            const address = msg.params.result.value.parsed.info.authority;
-            const result = await con.getAddressLookupTable(new PublicKey(address));
-            let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
-            if (index !== -1) {
-                addLookupAccounts[index] = result.value as AddressLookupTableAccount;
-            } else {
-                console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+            if (msg.method === 'accountNotification') {
+                const address = msg.params.result.value.parsed.info.authority;
+                const result = await con.getAddressLookupTable(new PublicKey(address));
+                let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
+                if (index !== -1) {
+                    addLookupAccounts[index] = result.value as AddressLookupTableAccount;
+                } else {
+                    console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+                }
             }
+        } catch (err) {
+            console.error(`ws message error: ${err}`);
         }
     });
 
