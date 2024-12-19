@@ -186,19 +186,23 @@ function subscribeAccount(address:string) {
 }
 
 function unsubscribeAccount(address:string) {
-    let subid = subscribeList.find((sub) => sub.address === address)?.subid;
-    let id = subscribeList.find((sub) => sub.address === address)?.id;
-    let params = {
-        "jsonrpc": "2.0",
-        "id": id,
-        "method": "accountUnsubscribe",
-        "params": [subid]
-    }
-    if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(params));
-        subscribeList = subscribeList.filter((sub) => sub.address !== address);
-    } else {
-        console.error('WebSocket not connected');
+    try {
+        let subid = subscribeList.find((sub) => sub.address === address)?.subid;
+        let id = subscribeList.find((sub) => sub.address === address)?.id;
+        let params = {
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "accountUnsubscribe",
+            "params": [subid]
+        }
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(params));
+            subscribeList = subscribeList.filter((sub) => sub.address !== address);
+        } else {
+            console.error('WebSocket not connected');
+        }
+    } catch (err) {
+        console.error(`unsubscribeAccount error: ${err}`);
     }
 }
 
