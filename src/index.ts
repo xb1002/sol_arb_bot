@@ -49,8 +49,8 @@ const pubCon: Connection = new Connection(clusterApiUrl('mainnet-beta'), status)
 // 创建Jupiter API客户端
 const jupCon = createJupiterApiClient({basePath: JUPITER_RPC});
 
-// 每20s更新一次blockhash
-let getBlockHashInterval = 20000;
+// 每5s更新一次blockhash
+let getBlockHashInterval = 5000;
 var blockhash = (await pubCon.getLatestBlockhash()).blockhash;
 setInterval(async () => {
     try {
@@ -299,7 +299,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
-                let cu_num = 200000;
+                let cu_num = 288888;
 
                 // 1. setup instructions
                 const setupInstructions = instructions.setupInstructions.map(instructionFormat);

@@ -33,7 +33,7 @@ interface timeSpan {
     timeSpan: timeSpanType
 }
 export const getPairsParams = {
-    timeSpan: '5m' as timeSpanType,
+    timeSpan: '1h' as timeSpanType,
     pairNum : 7,
 }
 
