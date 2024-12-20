@@ -1,0 +1,2 @@
+不使用bundle时，也就是SendTxNoBundle=true
+需要降低优先费，因为失败交易会很多

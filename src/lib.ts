@@ -114,6 +114,36 @@ export async function batchSendTxToJito(txs:VersionedTransaction,bundle_apis:str
     }
 }
 
+export async function sendTxToRpc(tx:VersionedTransaction,connection:Connection) {
+    try {
+        await connection.sendRawTransaction(tx.serialize(), {
+            skipPreflight: true,
+            maxRetries: 0
+        }).then((resp) => {
+            console.log(`sent tx: ${resp}`)
+            // 保存到log文件
+            fs.appendFile('./log.txt', `${new Date().toLocaleString()} -> sent tx: ${resp}\n`, (err) => {
+                if (err) {
+                    console.error(`write log error: ${err}`)
+                }
+            })
+        }).catch((err) => {
+            console.error(`sendTxToRpc error: ${err}`)
+        })
+    } catch (err) {
+        console.error(`sendTxToRpc error: ${err}`)
+    }
+}
+
+export async function batchSendTxToRpcs(tx:VersionedTransaction,connections:Connection[]) {
+    try {
+        connections.map(async (connection) => {
+            await sendTxToRpc(tx,connection)
+        })
+    } catch (err) {
+        console.error(`batchSendTxToRpcs error: ${err}`)
+    }
+}
 
 // 从gmgnai获取交易对
 export async function getPairs() : Promise<pair[]> {

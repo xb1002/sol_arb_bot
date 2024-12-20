@@ -13,7 +13,8 @@ import 'dotenv/config';
 import bs58 from 'bs58';
 import axios from 'axios';
 import { wait, instructionFormat, getQuote, sendTxToBundle,sendTxToJito,getPairs,
-    batchSendTxToBundle,batchSendTxToJito } from './lib.js';
+    batchSendTxToBundle,batchSendTxToJito,batchSendTxToRpcs, 
+    sendTxToRpc} from './lib.js';
 import { config,trade_pairs,pair,batchBundleApi } from './config.js';
 import WebSocket from 'ws';
 import os from 'os';
@@ -26,6 +27,7 @@ const RPC = process.env.RPC;
 const JUPITER_RPC = process.env.JUPITER_API;
 const SECRET_KEY = process.env.SECRET_KEY;
 const BUNDLE_API = process.env.BUNDLE_API as string;
+const SEND_TX_RPCS = process.env.SEND_TX_RPCS?.split(',') as string[];
 // 生成钱包
 const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as string)));
 
@@ -33,6 +35,8 @@ const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as str
 let {status,
     maxListen,
     minJitoTip,
+    SendTxNoBundle,
+    priorfee,
     feePercent,
     initalTradeSol,
     threshold,
@@ -43,6 +47,7 @@ let batchBundleApis = batchBundleApi;
 
 // 构造RPC池
 const rpc = RPC as string
+const SEND_TX_RPCS_CLIENTS = SEND_TX_RPCS.map((rpc) => new Connection(rpc,status));
 // 构造连接池
 const con : Connection = new Connection(rpc, status);
 const pubCon: Connection = new Connection(clusterApiUrl('mainnet-beta'), status);
@@ -283,8 +288,8 @@ async function monitor(monitorParams:monitorParams) {
 
             let mergedQuoteResp = quote0Resp as QuoteResponse;
             mergedQuoteResp.outputMint = (quote1Resp as QuoteResponse).outputMint;
-            mergedQuoteResp.outAmount = String(pair1_to_pair2.amount+jitoTip);
-            mergedQuoteResp.otherAmountThreshold = String(pair1_to_pair2.amount+jitoTip);
+            mergedQuoteResp.outAmount = SendTxNoBundle ? (String(pair1_to_pair2.amount)) : (String(pair1_to_pair2.amount+jitoTip));
+            mergedQuoteResp.otherAmountThreshold = SendTxNoBundle ? (String(pair1_to_pair2.amount)) : (String(pair1_to_pair2.amount+jitoTip));
             mergedQuoteResp.priceImpactPct = String(0);
             mergedQuoteResp.routePlan = mergedQuoteResp.routePlan.concat((quote1Resp as QuoteResponse).routePlan);
 
@@ -320,19 +325,22 @@ async function monitor(monitorParams:monitorParams) {
 
                 // 4. 调用computeBudget设置优先费
                 const computeUnitPriceInstruction = ComputeBudgetProgram.setComputeUnitPrice({
-                    microLamports: 66666,
+                    // microLamports: 66666,
+                    microLamports:priorfee,
                 })
                 cu_ixs.push(computeUnitPriceInstruction);
                 // 合并cu_ixs
                 ixs = cu_ixs.concat(ixs);
 
                 // 5. JiTo Tip
-                const tipInstruction = SystemProgram.transfer({
-                    fromPubkey: payer.publicKey,
-                    toPubkey: new PublicKey(JitoTipAccounts[Math.floor(Math.random()*JitoTipAccounts.length)]),
-                    lamports: jitoTip,
-                })
-                ixs.push(tipInstruction);
+                if (!SendTxNoBundle) {
+                    const tipInstruction = SystemProgram.transfer({
+                        fromPubkey: payer.publicKey,
+                        toPubkey: new PublicKey(JitoTipAccounts[Math.floor(Math.random()*JitoTipAccounts.length)]),
+                        lamports: jitoTip,
+                    })
+                    ixs.push(tipInstruction);
+                }
 
                 const addressLookupTableAccounts = await Promise.all(
                     instructions.addressLookupTableAddresses.map(async (address) => {
@@ -364,7 +372,11 @@ async function monitor(monitorParams:monitorParams) {
                 try {
                     // await sendTxToBundle(transaction,BUNDLE_API);
                     // await sendTxToJito(transaction,BUNDLE_API);
-                    await batchSendTxToBundle(transaction,batchBundleApis);
+                    if (SendTxNoBundle) {
+                        await batchSendTxToRpcs(transaction,SEND_TX_RPCS_CLIENTS);
+                    } else {
+                        await batchSendTxToBundle(transaction,batchBundleApis);
+                    }
                     // await batchSendTxToJito(transaction,batchBundleApis);
                     console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {

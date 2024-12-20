@@ -4,6 +4,8 @@ export const config = {
     status: "confirmed" as Commitment, // 确认状态
     maxListen: 200, // 最大监听数
     minJitoTip:0.000005* LAMPORTS_PER_SOL, // 单位LAMPORTS
+    SendTxNoBundle: false, // 是否不使用bundle发送交易, 需要设置SEND_TX_RPCS, false为使用bundle发送交易, true为不使用bundle发送交易
+    priorfee: 12345, // 优先费用,单位MicroLamports
     feePercent:0.05, // 手续费比例
     initalTradeSol:0.6, // 单位SOL
     threshold:1.004, // 阈值
