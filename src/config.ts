@@ -4,9 +4,9 @@ export const config = {
     status: "confirmed" as Commitment, // 确认状态
     maxListen: 200, // 最大监听数
     minJitoTip:0.000005* LAMPORTS_PER_SOL, // 单位LAMPORTS
-    feePercent:0.2, // 手续费比例
+    feePercent:0.05, // 手续费比例
     initalTradeSol:0.6, // 单位SOL
-    threshold:1.002, // 阈值
+    threshold:1.004, // 阈值
     tradePercent:0.98, // 交易总的wsol比例
     JitoTipAccounts: [
         "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
@@ -28,7 +28,7 @@ export const batchBundleApi = [
 ]
 
 // gmgn查询参数
-type timeSpanType = '5m' | '1h' | '6h' 
+type timeSpanType = '1m' |'5m' | '1h' | '6h' 
 interface timeSpan {
     timeSpan: timeSpanType
 }
@@ -44,5 +44,5 @@ export interface pair {
 export const trade_pairs = {
     waitTime: 0.35, // 单位秒
     pair1: {symbol: "wsol", mint: "So11111111111111111111111111111111111111112"} as pair,
-    getPairsInterval: 1000*60*10, // 单位毫秒
+    getPairsInterval: 1000*60*3, // 单位毫秒
 }

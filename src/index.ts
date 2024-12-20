@@ -17,6 +17,7 @@ import { wait, instructionFormat, getQuote, sendTxToBundle,sendTxToJito,getPairs
 import { config,trade_pairs,pair,batchBundleApi } from './config.js';
 import WebSocket from 'ws';
 import os from 'os';
+import fs from 'fs';
 
 // 导入环境变量
 // const QUICKNODE_RPC = process.env.QUICKNODE_API;
@@ -123,12 +124,16 @@ function connectWebSocket() {
             if (msg.result) {
                 if (msg.result === true) {
                     console.log(`Unsubscribe success, id: ${msg.id}`);
+                    fs.appendFileSync('subscribeList.log', `Unsubscribe success, id: ${msg.id}\n`);
                 } else {
                     let index = subscribeList.findIndex((sub) => sub.id === msg.id);
                     if (index !== -1) {
                         subscribeList[index].subid = msg.result;
+                        // 添加日志
+                        fs.appendFileSync('subscribeList.log', `${subscribeList[index].address},${msg.result}\n`);
                     } else {
                         console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                        fs.appendFileSync('subscribeList.log', `when update subscribeList, can't find the id... id: ${msg.id}\n`);
                     }
                 }
             }
@@ -138,6 +143,7 @@ function connectWebSocket() {
                 let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
                 if (index !== -1) {
                     addLookupAccounts[index] = result.value as AddressLookupTableAccount;
+                    
                 } else {
                     console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
                 }
@@ -225,7 +231,7 @@ setInterval(() => {
         let address = addLookupAccounts[0].key.toBase58();
         unsubscribeAccount(address);
     }
-}, 5000);
+}, 3000);
 
 
 // 监测套利机会
@@ -299,7 +305,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
-                let cu_num = 288888;
+                let cu_num = 199999;
 
                 // 1. setup instructions
                 const setupInstructions = instructions.setupInstructions.map(instructionFormat);
