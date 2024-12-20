@@ -5,11 +5,12 @@ export const config = {
     maxListen: 200, // 最大监听数
     minJitoTip:0.000005* LAMPORTS_PER_SOL, // 单位LAMPORTS
     SendTxNoBundle: false, // 是否不使用bundle发送交易, 需要设置SEND_TX_RPCS, false为使用bundle发送交易, true为不使用bundle发送交易
-    priorfee: 66666, // 优先费用,单位MicroLamports
-    feePercent:0.05, // 手续费比例
-    initalTradeSol:0.6, // 单位SOL
-    threshold:1.004, // 阈值
-    tradePercent:0.98, // 交易总的wsol比例
+    priorfee: 23456, // 优先费用,单位MicroLamports
+    cu_nums: 666666, // 计算单元数,如果是直接路由,则需要推荐值为199999,如果是间接路由,则需要推荐值为400000
+    directRoutes: false, // 是否只使用直接路由
+    feePercent:0, // jito tip比例,如果不是使用wsol交易,则需要设置为0
+    threshold:1.01, // 阈值
+    tradePercent:0.9, // 交易总的pair1比例
     JitoTipAccounts: [
         "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
         "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
@@ -30,12 +31,12 @@ export const batchBundleApi = [
 ]
 
 // gmgn查询参数
-type timeSpanType = '1m' |'5m' | '1h' | '6h' 
+type timeSpanType = '1m' |'5m' | '1h' | '6h' | '24h'
 interface timeSpan {
     timeSpan: timeSpanType
 }
 export const getPairsParams = {
-    timeSpan: '1h' as timeSpanType,
+    timeSpan: '24h' as timeSpanType,
     pairNum : 7,
 }
 
@@ -45,7 +46,7 @@ export interface pair {
 }
 export const trade_pairs = {
     waitTime: 0.35, // 单位秒
-    pair1: {symbol: "wsol", mint: "So11111111111111111111111111111111111111112"} as pair,
-    // pair1: {symbol: "usdc", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"} as pair,
+    // pair1: {symbol: "wsol", mint: "So11111111111111111111111111111111111111112"} as pair,
+    pair1: {symbol: "usdc", mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"} as pair,
     getPairsInterval: 1000*60*3, // 单位毫秒
 }

@@ -37,8 +37,9 @@ let {status,
     minJitoTip,
     SendTxNoBundle,
     priorfee,
+    cu_nums,
+    directRoutes,
     feePercent,
-    initalTradeSol,
     threshold,
     tradePercent,
     JitoTipAccounts,
@@ -67,28 +68,38 @@ setInterval(async () => {
 }, getBlockHashInterval);
 
 // 每10min更新一次wsol余额
-let wsolMint = 'So11111111111111111111111111111111111111112';
-let ATA = await getAssociatedTokenAddress(new PublicKey(wsolMint),payer.publicKey);
-async function getWsolBalance(ATA:PublicKey) : Promise<number> {
+// let wsolMint = 'So11111111111111111111111111111111111111112';
+let {symbol:mainSymbol,mint:mainMint} = trade_pairs.pair1;
+var mainBalance = 0;
+let ATA = await getAssociatedTokenAddress(new PublicKey(mainMint),payer.publicKey);
+async function getMainBalance(ATA:PublicKey) : Promise<number> {
     try {
         const result = await pubCon.getTokenAccountBalance(ATA);
-        return (result.value.uiAmount as number);
+        return (result.value.amount as unknown as number);
     } catch (err) {
-        console.error(`getWsolBalance error:`)
-        return initalTradeSol;
+        console.error(`get ${mainSymbol} Balance error:`)
+        if (mainBalance > 0) {
+            return mainBalance;
+        } else {
+            return 0;
+        }
     }
 }
-let getWsolBalanceInterval = 1000*60*10;
-var wsolBalance = await getWsolBalance(ATA);
-let trade_sol = Math.floor(wsolBalance*tradePercent*100)/100;
-console.log(`wsolBalance: ${wsolBalance} sol`);
+let getBalanceInterval = 1000*60*10;
+mainBalance = await getMainBalance(ATA);
+if (mainBalance === 0) {
+    console.error(`inital ${mainSymbol} Balance error:`)
+    process.exit(1);
+}
+let trade_main = Math.floor(mainBalance*tradePercent);
+console.log(`${mainSymbol} Balance: ${mainBalance} `);
 setInterval(async () => {
     try {
-        wsolBalance = Math.floor((await getWsolBalance(ATA))*tradePercent*100)/100;
+        mainBalance = Math.floor((await getMainBalance(ATA))*tradePercent*100)/100;
     } catch (err) {
-        console.error(`getWsolBalance error: ${err}`)
+        console.error(`get ${mainSymbol} Balance error: ${err}`)
     }
-}, getWsolBalanceInterval);
+}, getBalanceInterval);
 
 
 
@@ -249,9 +260,9 @@ async function monitor(monitorParams:monitorParams) {
     const pair1_to_pair2 : QuoteGetRequest = {
         inputMint: pair1.mint,
         outputMint: pair2.mint,
-        amount: LAMPORTS_PER_SOL*trade_sol,
+        amount: trade_main,
         // onlyDirectRoutes: false,
-        onlyDirectRoutes: true,
+        onlyDirectRoutes: directRoutes,
         slippageBps: 0,
         maxAccounts: 24,
         swapMode: QuoteGetSwapModeEnum.ExactIn
@@ -259,9 +270,9 @@ async function monitor(monitorParams:monitorParams) {
     const pair2_to_pair1 : QuoteGetRequest = {
         inputMint: pair2.mint,
         outputMint: pair1.mint,
-        amount: LAMPORTS_PER_SOL*trade_sol,
+        amount: trade_main,
         // onlyDirectRoutes: false,
-        onlyDirectRoutes: true,
+        onlyDirectRoutes: directRoutes,
         slippageBps: 0,
         // maxAccounts: 30,
         swapMode: QuoteGetSwapModeEnum.ExactOut
@@ -284,7 +295,7 @@ async function monitor(monitorParams:monitorParams) {
             console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
 
             // 计算Jito Tip
-            let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-1)*trade_sol*LAMPORTS_PER_SOL*feePercent));
+            let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-1)*trade_main*feePercent));
 
             let mergedQuoteResp = quote0Resp as QuoteResponse;
             mergedQuoteResp.outputMint = (quote1Resp as QuoteResponse).outputMint;
@@ -307,7 +318,7 @@ async function monitor(monitorParams:monitorParams) {
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
-                let cu_num = 199999;
+                let cu_num = cu_nums;
 
                 // 1. setup instructions
                 const setupInstructions = instructions.setupInstructions.map(instructionFormat);
