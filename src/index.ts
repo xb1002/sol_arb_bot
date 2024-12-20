@@ -124,16 +124,12 @@ function connectWebSocket() {
             if (msg.result) {
                 if (msg.result === true) {
                     console.log(`Unsubscribe success, id: ${msg.id}`);
-                    fs.appendFileSync('subscribeList.log', `Unsubscribe success, id: ${msg.id}\n`);
                 } else {
                     let index = subscribeList.findIndex((sub) => sub.id === msg.id);
                     if (index !== -1) {
                         subscribeList[index].subid = msg.result;
-                        // 添加日志
-                        fs.appendFileSync('subscribeList.log', `${subscribeList[index].address},${msg.result}\n`);
                     } else {
                         console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
-                        fs.appendFileSync('subscribeList.log', `when update subscribeList, can't find the id... id: ${msg.id}\n`);
                     }
                 }
             }
@@ -143,9 +139,10 @@ function connectWebSocket() {
                 let index = addLookupAccounts.findIndex((account) => account.key.toBase58() === new PublicKey(address).toBase58());
                 if (index !== -1) {
                     addLookupAccounts[index] = result.value as AddressLookupTableAccount;
-                    
+                    fs.appendFileSync('updateLookupAccounts.log', `${address},${result.value}\n`);
                 } else {
                     console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+                    fs.appendFileSync('updateLookupAccounts.log', `when update addressLookupTableAccounts, can't find the account...address: ${address}\n`);
                 }
             }
         } catch (err) {
