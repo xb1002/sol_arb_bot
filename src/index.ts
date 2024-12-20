@@ -253,7 +253,7 @@ async function monitor(monitorParams:monitorParams) {
         // onlyDirectRoutes: false,
         onlyDirectRoutes: true,
         slippageBps: 0,
-        maxAccounts: 30,
+        maxAccounts: 24,
         swapMode: QuoteGetSwapModeEnum.ExactIn
     }
     const pair2_to_pair1 : QuoteGetRequest = {
