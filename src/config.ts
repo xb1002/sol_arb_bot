@@ -11,6 +11,7 @@ export const config = {
     feePercent:0.1, // jito tip比例,如果不是使用wsol交易,则需要设置为0
     partformFeeBps: 20, // 平台费用,单位0.01%
     threshold:1, // 阈值
+    slotLimit: 1, // 限制quote报价差异在多少个slot内，发送到bundle可以设置大一点，不使用bundle设置小一点
     minProfitBps: 10, // 最小利润,单位0.01%
     tradePercent:0.9, // 交易总的pair1比例
     JitoTipAccounts: [

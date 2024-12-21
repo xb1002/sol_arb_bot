@@ -42,6 +42,7 @@ let {status,
     feePercent,
     partformFeeBps,
     threshold,
+    slotLimit,
     minProfitBps,
     tradePercent,
     JitoTipAccounts,
@@ -288,6 +289,11 @@ async function monitor(monitorParams:monitorParams) {
         ])
         if (quote0Resp?.routePlan[0].swapInfo.ammKey === quote1Resp?.routePlan[0].swapInfo.ammKey) {
             console.log(`same pool, return...`)
+            return;
+        }
+        let slotDiff = Math.abs(Number(quote0Resp?.contextSlot)-Number(quote1Resp?.contextSlot))
+        if (slotDiff > slotLimit) {
+            console.log(`contextSlot difference ${slotDiff} exceed ${slotLimit}, return...`)
             return;
         }
         let total_fee_rate = 1;
