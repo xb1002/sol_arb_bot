@@ -40,6 +40,7 @@ let {status,
     cu_nums,
     directRoutes,
     feePercent,
+    partformFeeBps,
     threshold,
     tradePercent,
     JitoTipAccounts,
@@ -75,7 +76,7 @@ let ATA = await getAssociatedTokenAddress(new PublicKey(mainMint),payer.publicKe
 async function getMainBalance(ATA:PublicKey) : Promise<number> {
     try {
         const result = await pubCon.getTokenAccountBalance(ATA);
-        return (result.value.amount as unknown as number);
+        return (Number(result.value.amount));
     } catch (err) {
         console.error(`get ${mainSymbol} Balance error:`)
         if (mainBalance > 0) {
@@ -120,12 +121,6 @@ function connectWebSocket() {
     ws = new WebSocket(wsUrl);
     ws.on('open', () => {
         console.log('ws connected');
-        setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.ping(); // 如果 WebSocket 支持 ping，可以使用此方法
-                console.log('Sending heartbeat...');
-            }
-        }, 10000);  // 每 10 秒发送一次心跳
     });
 
     ws.on('message', async (data) => {
@@ -235,6 +230,13 @@ function unsubscribeAccount(address:string) {
 
 // 连接
 connectWebSocket();
+// 保持连接
+setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.ping(); // 如果 WebSocket 支持 ping，可以使用此方法
+        console.log('Sending heartbeat...');
+    }
+}, 10000);  // 每 10 秒发送一次心跳
 
 // 设置最大监听数
 const maxListenNum = maxListen;
@@ -264,7 +266,7 @@ async function monitor(monitorParams:monitorParams) {
         // onlyDirectRoutes: false,
         onlyDirectRoutes: directRoutes,
         slippageBps: 0,
-        maxAccounts: 24,
+        maxAccounts: 28,
         swapMode: QuoteGetSwapModeEnum.ExactIn
     }
     const pair2_to_pair1 : QuoteGetRequest = {
@@ -287,15 +289,24 @@ async function monitor(monitorParams:monitorParams) {
             console.log(`same pool, return...`)
             return;
         }
+        let total_fee_rate = 1;
+        quote0Resp?.routePlan.forEach((route) => {
+            total_fee_rate *= (1+Number(route.swapInfo.feeAmount)/Number(route.swapInfo.inAmount));
+        })
+        quote1Resp?.routePlan.forEach((route) => {
+            total_fee_rate *= (1+Number(route.swapInfo.feeAmount)/Number(route.swapInfo.inAmount));
+        })
+        total_fee_rate = total_fee_rate + partformFeeBps/10000;
         let p1 = Number(quote0Resp?.outAmount)/Number(quote0Resp?.inAmount);
         let p2 = Number(quote1Resp?.inAmount)/Number(quote1Resp?.outAmount);
-        if (p2/p1 > threshold) {
+        if (p2/p1 > Math.max(threshold,total_fee_rate)) {
             console.log(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
             console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
+            console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} total fee rate: ${total_fee_rate}`)
             console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
 
             // 计算Jito Tip
-            let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-1)*trade_main*feePercent));
+            let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-total_fee_rate)*trade_main*feePercent));
 
             let mergedQuoteResp = quote0Resp as QuoteResponse;
             mergedQuoteResp.outputMint = (quote1Resp as QuoteResponse).outputMint;
@@ -404,15 +415,20 @@ async function monitor(monitorParams:monitorParams) {
 
 // 主函数
 let {waitTime,pair1,getPairsInterval} = trade_pairs;
-var pair2s = await getPairs();
-// 每隔一段时间获取一次交易对
-setInterval(async () => {
-    try {
-        pair2s = await getPairs();
-    } catch (err) {
-        console.error(`getPairs error, use last pairs...`)
-    }
-}, getPairsInterval);
+var pair2s:pair[];
+if (trade_pairs.pair2s.length > 0) {
+    pair2s = trade_pairs.pair2s;
+} else {
+    pair2s = await getPairs();
+    // 每隔一段时间获取一次交易对
+    setInterval(async () => {
+        try {
+            pair2s = await getPairs();
+        } catch (err) {
+            console.error(`getPairs error, use last pairs...`)
+        }
+    }, getPairsInterval);
+}
 
 let num = 0;
 async function main(num:number) {
