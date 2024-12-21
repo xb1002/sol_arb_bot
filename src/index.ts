@@ -42,6 +42,7 @@ let {status,
     feePercent,
     partformFeeBps,
     threshold,
+    minProfitBps,
     tradePercent,
     JitoTipAccounts,
 } = config;
@@ -299,7 +300,7 @@ async function monitor(monitorParams:monitorParams) {
         total_fee_rate = total_fee_rate + partformFeeBps/10000;
         let p1 = Number(quote0Resp?.outAmount)/Number(quote0Resp?.inAmount);
         let p2 = Number(quote1Resp?.inAmount)/Number(quote1Resp?.outAmount);
-        if (p2/p1 > Math.max(threshold,total_fee_rate)) {
+        if (p2/p1 > Math.max(threshold,total_fee_rate+minProfitBps/10000)) {
             console.log(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
             console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
             console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} total fee rate: ${total_fee_rate}`)
