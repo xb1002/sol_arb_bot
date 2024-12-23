@@ -2,6 +2,7 @@ import {LAMPORTS_PER_SOL, Commitment} from '@solana/web3.js';
 
 export const config = {
     status: "confirmed" as Commitment, // 确认状态
+    leverageSubmitNum: 4, // 通过使用不同的blockhash捕获相同的交易机会
     maxListen: 200, // 最大监听数
     adjustSlotInterval: 402, // 调整slot间隔,按理400ms每调整一次
     checkSlotInterval: 1000*30, // 检查slot间隔,单位毫秒

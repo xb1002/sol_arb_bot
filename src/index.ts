@@ -33,6 +33,7 @@ const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as str
 
 // 从config.ts中导入配置
 let {status,
+    leverageSubmitNum,
     maxListen,
     adjustSlotInterval,
     checkSlotInterval,
@@ -64,10 +65,16 @@ const jupCon = createJupiterApiClient({basePath: JUPITER_RPC});
 
 // 每5s更新一次blockhash
 let getBlockHashInterval = 5000;
+var blockhash_list:string[] = [];
 var blockhash = (await pubCon.getLatestBlockhash()).blockhash;
+blockhash_list.push(blockhash);
 setInterval(async () => {
     try {
         blockhash = (await pubCon.getLatestBlockhash()).blockhash;
+        blockhash_list.push(blockhash);
+        if (blockhash_list.length > leverageSubmitNum) {
+            blockhash_list.shift();
+        }
     } catch (err) {
         console.error(`getLatestBlockhash error: ${err}`)
     }
@@ -409,13 +416,17 @@ async function monitor(monitorParams:monitorParams) {
 
                 // v0 tx
                 // const { blockhash } = await con.getLatestBlockhash();
-                const messageV0 = new TransactionMessage({
-                    payerKey: payer.publicKey,
-                    recentBlockhash: blockhash,
-                    instructions: ixs,
-                }).compileToV0Message(addressLookupTableAccounts);
-                const transaction = new VersionedTransaction(messageV0);
-                transaction.sign([payer]);
+                let txs : VersionedTransaction[] = [];
+                blockhash_list.map((blockhash) => {
+                    const messageV0 = new TransactionMessage({
+                        payerKey: payer.publicKey,
+                        recentBlockhash: blockhash,
+                        instructions: ixs,
+                    }).compileToV0Message(addressLookupTableAccounts);
+                    const transaction = new VersionedTransaction(messageV0);
+                    transaction.sign([payer]);
+                    txs.push(transaction);
+                });
 
                 // console.log('generate tx cost:',new Date().getTime()-start)
                 console.log(`(${pair1.symbol},${pair2.symbol}) generate tx cost:`,new Date().getTime()-start)
@@ -423,11 +434,19 @@ async function monitor(monitorParams:monitorParams) {
                 try {
                     // await sendTxToBundle(transaction,BUNDLE_API);
                     // await sendTxToJito(transaction,BUNDLE_API);
+                    let promises : Promise<void>[] = [];
                     if (SendTxNoBundle) {
-                        await batchSendTxToRpcs(transaction,SEND_TX_RPCS_CLIENTS);
+                        // await batchSendTxToRpcs(transaction,SEND_TX_RPCS_CLIENTS);
+                        for (let i = 0; i < txs.length; i++) {
+                            promises.push(sendTxToRpc(txs[i],SEND_TX_RPCS_CLIENTS[i%SEND_TX_RPCS_CLIENTS.length]));
+                        }
                     } else {
-                        await batchSendTxToBundle(transaction,batchBundleApis);
+                        // await batchSendTxToBundle(transaction,batchBundleApis);
+                        for (let i = 0; i < txs.length; i++) {
+                            promises.push(sendTxToBundle(txs[i],batchBundleApis[i%batchBundleApis.length]));
+                        }
                     }
+                    await Promise.all(promises);
                     // await batchSendTxToJito(transaction,batchBundleApis);
                     console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
                 } catch (err) {
