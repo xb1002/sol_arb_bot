@@ -34,6 +34,7 @@ const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as str
 // 从config.ts中导入配置
 let {status,
     maxListen,
+    checkSlotInterval,
     minJitoTip,
     SendTxNoBundle,
     priorfee,
@@ -69,6 +70,19 @@ setInterval(async () => {
         console.error(`getLatestBlockhash error: ${err}`)
     }
 }, getBlockHashInterval);
+
+// 每checkSlotInterval检查一次slot
+var latestSlot = (await con.getSlot(status));
+setInterval(async () => {
+    latestSlot += 1;
+}, 397);
+setInterval(async () => {
+    try {
+        latestSlot = (await con.getSlot(status));
+    } catch (err) {
+        console.error(`getSlot error: ${err}`)
+    }
+}, checkSlotInterval);
 
 // 每10min更新一次wsol余额
 // let wsolMint = 'So11111111111111111111111111111111111111112';
@@ -291,6 +305,12 @@ async function monitor(monitorParams:monitorParams) {
             console.log(`same pool, return...`)
             return;
         }
+        if (latestSlot > Number(quote0Resp?.contextSlot) || latestSlot > Number(quote1Resp?.contextSlot)) {
+            console.log(`quote is outdated, return...`)
+            console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
+            return;
+        }
+        // console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
         let slotDiff = Math.abs(Number(quote0Resp?.contextSlot)-Number(quote1Resp?.contextSlot))
         if (slotDiff > slotLimit) {
             console.log(`contextSlot difference ${slotDiff} exceed ${slotLimit}, return...`)
