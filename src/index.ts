@@ -34,7 +34,9 @@ const payer = Keypair.fromSecretKey(new Uint8Array(bs58.decode(SECRET_KEY as str
 // 从config.ts中导入配置
 let {status,
     maxListen,
+    adjustSlotInterval,
     checkSlotInterval,
+    slotTolerance,
     minJitoTip,
     SendTxNoBundle,
     priorfee,
@@ -75,7 +77,7 @@ setInterval(async () => {
 var latestSlot = (await con.getSlot(status));
 setInterval(async () => {
     latestSlot += 1;
-}, 397);
+}, adjustSlotInterval);
 setInterval(async () => {
     try {
         latestSlot = (await con.getSlot(status));
@@ -305,7 +307,7 @@ async function monitor(monitorParams:monitorParams) {
             console.log(`same pool, return...`)
             return;
         }
-        if (latestSlot > Number(quote0Resp?.contextSlot) || latestSlot > Number(quote1Resp?.contextSlot)) {
+        if (latestSlot-slotTolerance > Number(quote0Resp?.contextSlot) || latestSlot-slotTolerance > Number(quote1Resp?.contextSlot)) {
             console.log(`quote is outdated, return...`)
             console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
             return;
