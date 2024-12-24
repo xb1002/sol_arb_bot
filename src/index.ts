@@ -19,6 +19,18 @@ import { config,trade_pairs,pair,batchBundleApi } from './config.js';
 import WebSocket from 'ws';
 import os from 'os';
 import fs from 'fs';
+import winston from 'winston';
+
+// 设置日志
+const logger = winston.createLogger({
+    level: 'debug',
+    format: winston.format.simple(),
+    transports: [
+      new winston.transports.Console({level: 'debug'}),
+      new winston.transports.File({ filename: 'error.log', level: 'error' }),
+      new winston.transports.File({ filename: 'combined.log' }),
+    ],
+  });
 
 // 导入环境变量
 // const QUICKNODE_RPC = process.env.QUICKNODE_API;
@@ -76,7 +88,8 @@ setInterval(async () => {
             blockhash_list.shift();
         }
     } catch (err) {
-        console.error(`getLatestBlockhash error: ${err}`)
+        // console.error(`getLatestBlockhash error: ${err}`)
+        logger.error(`getLatestBlockhash error: ${err}`)
     }
 }, getBlockHashInterval);
 
@@ -87,9 +100,12 @@ setInterval(async () => {
 }, adjustSlotInterval);
 setInterval(async () => {
     try {
+        logger.debug(`before update, latestSlot: ${latestSlot}`)
         latestSlot = (await con.getSlot(status));
+        logger.debug(`after update, latestSlot: ${latestSlot}`)
     } catch (err) {
-        console.error(`getSlot error: ${err}`)
+        // console.error(`getSlot error: ${err}`)
+        logger.error(`getSlot error: ${err}`)
     }
 }, checkSlotInterval);
 
@@ -103,7 +119,8 @@ async function getMainBalance(ATA:PublicKey) : Promise<number> {
         const result = await pubCon.getTokenAccountBalance(ATA);
         return (Number(result.value.amount));
     } catch (err) {
-        console.error(`get ${mainSymbol} Balance error:`)
+        // console.error(`get ${mainSymbol} Balance error:`)
+        logger.error(`get ${mainSymbol} Balance error: ${err}`)
         if (mainBalance > 0) {
             return mainBalance;
         } else {
@@ -114,16 +131,19 @@ async function getMainBalance(ATA:PublicKey) : Promise<number> {
 let getBalanceInterval = 1000*60*10;
 mainBalance = await getMainBalance(ATA);
 if (mainBalance === 0) {
-    console.error(`inital ${mainSymbol} Balance error:`)
+    // console.error(`inital ${mainSymbol} Balance error:`)
+    logger.error(`inital ${mainSymbol} Balance error:`)
     process.exit(1);
 }
 let trade_main = Math.floor(mainBalance*tradePercent);
-console.log(`${mainSymbol} Balance: ${mainBalance} `);
+// console.log(`${mainSymbol} Balance: ${mainBalance} `);
+logger.info(`${mainSymbol} Balance: ${mainBalance} `);
 setInterval(async () => {
     try {
         mainBalance = Math.floor((await getMainBalance(ATA))*tradePercent*100)/100;
     } catch (err) {
-        console.error(`get ${mainSymbol} Balance error: ${err}`)
+        // console.error(`get ${mainSymbol} Balance error: ${err}`)
+        logger.error(`get ${mainSymbol} Balance error: ${err}`)
     }
 }, getBalanceInterval);
 
@@ -145,7 +165,8 @@ function connectWebSocket() {
     // 创建 WebSocket 连接
     ws = new WebSocket(wsUrl);
     ws.on('open', () => {
-        console.log('ws connected');
+        // console.log('ws connected');
+        logger.info('ws connected');
     });
 
     ws.on('message', async (data) => {
@@ -156,16 +177,19 @@ function connectWebSocket() {
             } else {
                 msg = JSON.parse(data as string);
             }
-            console.log(msg);
+            // console.log(msg);
+            // logger.info(msg);
             if (msg.result) {
                 if (msg.result === true) {
-                    console.log(`Unsubscribe success, id: ${msg.id}`);
+                    // console.log(`Unsubscribe success, id: ${msg.id}`);
+                    logger.info(`Unsubscribe success, id: ${msg.id}`);
                 } else {
                     let index = subscribeList.findIndex((sub) => sub.id === msg.id);
                     if (index !== -1) {
                         subscribeList[index].subid = msg.result;
                     } else {
-                        console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                        // console.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
+                        logger.error(`when update subscribeList, can't find the id... id: ${msg.id}`);
                     }
                 }
             }
@@ -177,20 +201,24 @@ function connectWebSocket() {
                     addLookupAccounts[index] = result.value as AddressLookupTableAccount;
                     fs.appendFileSync('updateLookupAccounts.log', `${address},${result.value}\n`);
                 } else {
-                    console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+                    // console.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
+                    logger.error(`when update addressLookupTableAccounts, can't find the account...address: ${address}`);
                     fs.appendFileSync('updateLookupAccounts.log', `when update addressLookupTableAccounts, can't find the account...address: ${address}\n`);
                 }
             }
         } catch (err) {
-            console.error(`ws message error: ${err}`);
+            // console.error(`ws message error: ${err}`);
+            logger.error(`ws message error: ${err}`);
         }
     });
 
     ws.on('close', () => {
-        console.log('ws closed');
+        // console.log('ws closed');
+        logger.info('ws closed');
         // 连接关闭时尝试重新连接
         setTimeout(() => {
-            console.log('Attempting to reconnect...');
+            // console.log('Attempting to reconnect...');
+            logger.info('Attempting to reconnect...');
             connectWebSocket();
             subscribeList = [];
             addLookupAccounts = [];
@@ -198,10 +226,12 @@ function connectWebSocket() {
     });
 
     ws.on('error', (err) => {
-        console.error(`ws error: ${err}`);
+        // console.error(`ws error: ${err}`);
+        logger.error(`ws error: ${err}`);
         // 出现错误时也尝试重连
         setTimeout(() => {
-            console.log('Attempting to reconnect...');
+            // console.log('Attempting to reconnect...');
+            logger.info('Attempting to reconnect...');
             connectWebSocket();
             subscribeList = [];
             addLookupAccounts = [];
@@ -227,7 +257,8 @@ function subscribeAccount(address:string) {
         ws.send(JSON.stringify(params));
         subscribeList.push({id:id,address:address,subid:null});
     } else {
-        console.error('WebSocket not connected');
+        // console.error('WebSocket not connected');
+        logger.error('WebSocket not connected');
     }
 }
 
@@ -246,10 +277,12 @@ function unsubscribeAccount(address:string) {
             subscribeList = subscribeList.filter((sub) => sub.address !== address);
             addLookupAccounts = addLookupAccounts.filter((account) => account.key.toBase58() !== address);
         } else {
-            console.error('WebSocket not connected');
+            // console.error('WebSocket not connected');
+            logger.error('WebSocket not connected');
         }
     } catch (err) {
-        console.error(`unsubscribeAccount error: ${err}`);
+        // console.error(`unsubscribeAccount error: ${err}`);
+        logger.error(`unsubscribeAccount error: ${err}`);
     }
 }
 
@@ -259,7 +292,8 @@ connectWebSocket();
 setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
         ws.ping(); // 如果 WebSocket 支持 ping，可以使用此方法
-        console.log('Sending heartbeat...');
+        // console.log('Sending heartbeat...');
+        logger.info('Sending heartbeat...');
     }
 }, 10000);  // 每 10 秒发送一次心跳
 
@@ -311,18 +345,22 @@ async function monitor(monitorParams:monitorParams) {
             getQuote(pair2_to_pair1,jupCon,`${pair2.symbol} -> ${pair1.symbol}`)
         ])
         if (quote0Resp?.routePlan[0].swapInfo.ammKey === quote1Resp?.routePlan[0].swapInfo.ammKey) {
-            console.log(`same pool, return...`)
+            // console.log(`same pool, return...`)
+            logger.debug(`pairs: ${pair1.symbol} ${pair2.symbol}, same pool, return...`)
             return;
         }
         if (latestSlot-slotTolerance > Number(quote0Resp?.contextSlot) || latestSlot-slotTolerance > Number(quote1Resp?.contextSlot)) {
-            console.log(`quote is outdated, return...`)
-            console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
+            // console.log(`quote is outdated, return...`)
+            // console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
+            logger.debug(`pairs: ${pair1.symbol} ${pair2.symbol}, latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
+            logger.debug(`pairs: ${pair1.symbol} ${pair2.symbol}, quote is outdated, return...`)
             return;
         }
         // console.log(`latestSlot: ${latestSlot}, quote0 slot: ${quote0Resp?.contextSlot}, quote1 slot: ${quote1Resp?.contextSlot}`)
         let slotDiff = Math.abs(Number(quote0Resp?.contextSlot)-Number(quote1Resp?.contextSlot))
         if (slotDiff > slotLimit) {
-            console.log(`contextSlot difference ${slotDiff} exceed ${slotLimit}, return...`)
+            // console.log(`contextSlot difference ${slotDiff} exceed ${slotLimit}, return...`)
+            logger.debug(`pairs: ${pair1.symbol} ${pair2.symbol}, contextSlot difference ${slotDiff} exceed ${slotLimit}, return...`)
             return;
         }
         let total_fee_rate = 1;
@@ -336,10 +374,14 @@ async function monitor(monitorParams:monitorParams) {
         let p1 = Number(quote0Resp?.outAmount)/Number(quote0Resp?.inAmount);
         let p2 = Number(quote1Resp?.inAmount)/Number(quote1Resp?.outAmount);
         if (p2/p1 > Math.max(threshold,total_fee_rate+minProfitBps/10000)) {
-            console.log(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
-            console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
-            console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} total fee rate: ${total_fee_rate}`)
-            console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
+            // console.log(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
+            // console.log(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
+            // console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} total fee rate: ${total_fee_rate}`)
+            // console.log(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
+            logger.info(`${pair1.symbol} to ${pair2.symbol} price: ${p1}`)
+            logger.info(`${pair2.symbol} to ${pair1.symbol} price: ${p2}`)
+            logger.info(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} total fee rate: ${total_fee_rate}`)
+            logger.info(`${pair1.symbol} -> ${pair2.symbol} -> ${pair1.symbol} price difference: ${p2/p1}`)
 
             // 计算Jito Tip
             let jitoTip = Math.max(minJitoTip,Math.floor((p2/p1-total_fee_rate)*trade_main*feePercent));
@@ -361,7 +403,8 @@ async function monitor(monitorParams:monitorParams) {
             try {
                 let start = new Date().getTime();
                 let instructions = await jupCon.swapInstructionsPost({ swapRequest: swapData })
-                console.log(`(${pair1.symbol},${pair2.symbol}) swapInstructionsPost time cost:`,new Date().getTime()-start)
+                // console.log(`(${pair1.symbol},${pair2.symbol}) swapInstructionsPost time cost:`,new Date().getTime()-start)
+                logger.debug(`(${pair1.symbol},${pair2.symbol}) swapInstructionsPost time cost: ${new Date().getTime()-start}`)
 
                 let ixs : TransactionInstruction[] = [];
                 let cu_ixs : TransactionInstruction[] = [];
@@ -429,7 +472,8 @@ async function monitor(monitorParams:monitorParams) {
                 });
 
                 // console.log('generate tx cost:',new Date().getTime()-start)
-                console.log(`(${pair1.symbol},${pair2.symbol}) generate tx cost:`,new Date().getTime()-start)
+                // console.log(`(${pair1.symbol},${pair2.symbol}) generate tx cost:`,new Date().getTime()-start)
+                logger.debug(`(${pair1.symbol},${pair2.symbol}) generate tx cost: ${new Date().getTime()-start}`)
                 // send tx
                 try {
                     // await sendTxToBundle(transaction,BUNDLE_API);
@@ -448,16 +492,20 @@ async function monitor(monitorParams:monitorParams) {
                     }
                     await Promise.all(promises);
                     // await batchSendTxToJito(transaction,batchBundleApis);
-                    console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
+                    // console.log(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost:`,new Date().getTime()-start)
+                    logger.debug(`(${pair1.symbol},${pair2.symbol}) from generate to send tx cost: ${new Date().getTime()-start}`)
                 } catch (err) {
-                    console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)
+                    // console.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)
+                    logger.error(`(${pair1.symbol},${pair2.symbol}) sendTxToCons error:`)
                 } 
             } catch (err) {
-                console.error(`(${pair1.symbol},${pair2.symbol}) swapInstructions generate error:`)
+                // console.error(`(${pair1.symbol},${pair2.symbol}) swapInstructions generate error:`)
+                logger.error(`(${pair1.symbol},${pair2.symbol}) swapInstructions generate error:`)
             }
         } 
     } catch (err) {
-        console.error(`(${pair1.symbol},${pair2.symbol}) getQuote error:`)
+        // console.error(`(${pair1.symbol},${pair2.symbol}) getQuote error:`)
+        logger.error(`(${pair1.symbol},${pair2.symbol}) getQuote error:`)
     }
 }
 
@@ -473,7 +521,8 @@ if (trade_pairs.pair2s.length > 0) {
         try {
             pair2s = await getPairs();
         } catch (err) {
-            console.error(`getPairs error, use last pairs...`)
+            // console.error(`getPairs error, use last pairs...`)
+            logger.error(`getPairs error, use last pairs...`)
         }
     }, getPairsInterval);
 }
@@ -488,12 +537,15 @@ async function main(num:number) {
         jupCon:jupCon
     })
     console.log(`waiting for ${waitTime}s...`)
+    // logger.info(`waiting for ${waitTime}s...`)
     await wait(waitTime*1000);
     main((num+1)%pair2s.length);
 }
 
 main(num).then(() => {
     console.log('start next round...')
+    // logger.info('start next round...')
 }).catch((err) => {
-    console.error(err);
+    // console.error(err);
+    logger.error(err);
 });
